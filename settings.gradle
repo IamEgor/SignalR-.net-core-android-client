@@ -1,1 +1,1 @@
-include ':app', ':dotnetcoresignalrclient', ':dotnetcoresignalrclientjava'
+include ':app', ':dotnetcoresignalrclient', ':dotnetcoresignalrclientjava', ':javawebsocketprovider', ':okhttpwebsocketprovider'

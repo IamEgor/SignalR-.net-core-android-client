@@ -7,5 +7,5 @@ public interface HubConnectionListener {
 
     void onMessage(HubMessage message);
 
-    void onError(Exception exception);
+    void onError(Throwable exception);
 }

@@ -5,17 +5,15 @@ import android.util.Log;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
-
-import org.java_websocket.client.WebSocketClient;
-import org.java_websocket.drafts.Draft_6455;
-import org.java_websocket.handshake.ServerHandshake;
+import com.smartarmenia.dotnetcoresignalrclientjava.provider.BaseSocketProvider;
+import com.smartarmenia.dotnetcoresignalrclientjava.provider.SignalRWebSocketCallbacks;
+import com.smartarmenia.dotnetcoresignalrclientjava.provider.SignalRWebSocketClient;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,13 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import javax.net.ssl.SSLSocketFactory;
-
 public class WebSocketHubConnectionP2 implements HubConnection {
     private static String SPECIAL_SYMBOL = "\u001E";
     private static String TAG = "WebSockets";
 
-    private WebSocketClient client;
+    private SignalRWebSocketClient client;
     private List<HubConnectionListener> listeners = new ArrayList<>();
     private Map<String, List<HubEventListener>> eventListeners = new HashMap<>();
     private Uri parsedUri;
@@ -39,9 +35,12 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     private String connectionId = null;
     private String authHeader;
 
-    public WebSocketHubConnectionP2(String hubUrl, String authHeader) {
+    private BaseSocketProvider baseSocketCreator;
+
+    public <T extends BaseSocketProvider> WebSocketHubConnectionP2(String hubUrl, String authHeader, T baseSocketCreator) {
         this.authHeader = authHeader;
         parsedUri = Uri.parse(hubUrl);
+        this.baseSocketCreator = baseSocketCreator;
     }
 
     @Override
@@ -121,14 +120,14 @@ public class WebSocketHubConnectionP2 implements HubConnection {
             headers.put("Authorization", authHeader);
         }
         try {
-            client = new WebSocketClient(new URI(uri.toString()), new Draft_6455(), headers, 15000) {
+            client = baseSocketCreator.createSocketClient(uri.toString(), headers, 15000, new SignalRWebSocketCallbacks() {
                 @Override
-                public void onOpen(ServerHandshake handshakeData) {
+                public void onOpen() {
                     Log.i(TAG, "Opened");
                     for (HubConnectionListener listener : listeners) {
                         listener.onConnected();
                     }
-                    send("{\"protocol\":\"json\",\"version\":1}" + SPECIAL_SYMBOL);
+                    client.send("{\"protocol\":\"json\",\"version\":1}" + SPECIAL_SYMBOL);
                 }
 
                 @Override
@@ -155,8 +154,13 @@ public class WebSocketHubConnectionP2 implements HubConnection {
                 }
 
                 @Override
-                public void onClose(int code, String reason, boolean remote) {
-                    Log.i(TAG, String.format("Closed. Code: %s, Reason: %s, Remote: %s", code, reason, remote));
+                public void onClosing(int code, String reason) {
+                    Log.i(TAG, String.format("Closed. Code: %s, Reason: %s", code, reason));
+                }
+
+                @Override
+                public void onClose(int code, String reason) {
+                    Log.i(TAG, String.format("Closed. Code: %s, Reason: %s", code, reason));
                     for (HubConnectionListener listener : listeners) {
                         listener.onDisconnected();
                     }
@@ -164,15 +168,11 @@ public class WebSocketHubConnectionP2 implements HubConnection {
                 }
 
                 @Override
-                public void onError(Exception ex) {
+                public void onError(Throwable ex) {
                     Log.i(TAG, "Error " + ex.getMessage());
                     error(ex);
                 }
-            };
-
-            if (parsedUri.getScheme().equals("https")) {
-                client.setSocket(SSLSocketFactory.getDefault().createSocket());
-            }
+            });
         } catch (Exception e) {
             error(e);
         }
@@ -180,7 +180,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
         client.connect();
     }
 
-    private void error(Exception ex) {
+    private void error(Throwable ex) {
         for (HubConnectionListener listener : listeners) {
             listener.onError(ex);
         }
