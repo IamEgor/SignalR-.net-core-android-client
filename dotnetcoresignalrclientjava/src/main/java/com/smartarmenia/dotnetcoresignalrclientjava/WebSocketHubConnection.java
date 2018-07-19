@@ -199,8 +199,23 @@ public class WebSocketHubConnection implements HubConnection {
     }
 
     @Override
+    public boolean isConnecting() {
+        return client.isConnecting();
+    }
+
+    @Override
     public synchronized boolean isConnected() {
         return client.isOpen();
+    }
+
+    @Override
+    public boolean isClosing() {
+        return client.isClosing();
+    }
+
+    @Override
+    public boolean isClosed() {
+        return client.isClosed();
     }
 
     @Override

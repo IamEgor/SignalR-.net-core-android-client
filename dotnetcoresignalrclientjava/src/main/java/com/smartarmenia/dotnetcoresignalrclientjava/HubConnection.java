@@ -5,7 +5,13 @@ public interface HubConnection {
 
     void disconnect();
 
+    boolean isConnecting();
+
     boolean isConnected();
+
+    boolean isClosing();
+
+    boolean isClosed();
 
     void addListener(HubConnectionListener listener);
 
