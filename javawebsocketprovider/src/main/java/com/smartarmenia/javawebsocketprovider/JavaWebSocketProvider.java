@@ -27,6 +27,7 @@ public abstract class JavaWebSocketProvider extends BaseSocketProvider<WebSocket
     static class JavaSignalRWebSocketClient extends WebSocketClient implements SignalRWebSocketClient {
 
         private SignalRWebSocketCallbacks mWebSocketCallbacks;
+        private volatile boolean isConnecting;
 
         public JavaSignalRWebSocketClient(URI serverUri) {
             super(serverUri);
@@ -54,7 +55,19 @@ public abstract class JavaWebSocketProvider extends BaseSocketProvider<WebSocket
         }
 
         @Override
+        public boolean isConnecting() {
+            return isConnecting;
+        }
+
+        @Override
+        public void connect() {
+            isConnecting = true;
+            super.connect();
+        }
+
+        @Override
         public void onOpen(ServerHandshake handshakedata) {
+            isConnecting = false;
             if (mWebSocketCallbacks != null) {
                 mWebSocketCallbacks.onOpen();
             }

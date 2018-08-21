@@ -33,6 +33,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     private Gson gson = new Gson();
 
     private String connectionId = null;
+    private volatile boolean obtainingConnectionId;
     private String authHeader;
 
     private BaseSocketProvider baseSocketCreator;
@@ -47,6 +48,8 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     public synchronized void connect() {
         if (client != null && (client.isOpen() || client.isConnecting()))
             return;
+
+        obtainingConnectionId = true;
 
         Runnable runnable;
         if (connectionId == null) {
@@ -178,6 +181,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
         }
         Log.i(TAG, "Connecting...");
         client.connect();
+        obtainingConnectionId = false;
     }
 
     private void error(Throwable ex) {
@@ -195,6 +199,11 @@ public class WebSocketHubConnectionP2 implements HubConnection {
             }
         };
         new Thread(runnable).start();
+    }
+
+    @Override
+    public boolean isObtainingConnectionId() {
+        return obtainingConnectionId;
     }
 
     @Override

@@ -5,6 +5,8 @@ public interface HubConnection {
 
     void disconnect();
 
+    boolean isObtainingConnectionId();
+
     boolean isConnecting();
 
     boolean isConnected();

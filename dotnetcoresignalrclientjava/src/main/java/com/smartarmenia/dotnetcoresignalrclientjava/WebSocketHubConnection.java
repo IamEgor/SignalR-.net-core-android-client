@@ -199,6 +199,11 @@ public class WebSocketHubConnection implements HubConnection {
     }
 
     @Override
+    public boolean isObtainingConnectionId() {
+        return false;
+    }
+
+    @Override
     public boolean isConnecting() {
         return client.isConnecting();
     }
