@@ -37,15 +37,21 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     private ExecutorService mCommandExecutor;
     private volatile boolean obtainingConnectionId;
 
-    private String connectionId = null;
+    private String connectionId;
     private String authHeader;
+    private boolean logEnabled;
 
     private BaseSocketProvider baseSocketCreator;
 
     public <T extends BaseSocketProvider> WebSocketHubConnectionP2(String hubUrl, String authHeader, T baseSocketCreator) {
+        this(hubUrl, authHeader, baseSocketCreator, false);
+    }
+
+    public <T extends BaseSocketProvider> WebSocketHubConnectionP2(String hubUrl, String authHeader, T baseSocketCreator, boolean logEnabled) {
         this.authHeader = authHeader;
         this.parsedUri = Uri.parse(hubUrl);
         this.baseSocketCreator = baseSocketCreator;
+        this.logEnabled = logEnabled;
         mCommandExecutor = Executors.newCachedThreadPool();
     }
 
@@ -75,7 +81,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     }
 
     private void getConnectionId() {
-        Log.i(TAG, "Requesting connection id...");
+        log("Requesting connection id...");
         if (!(parsedUri.getScheme().equals("http") || parsedUri.getScheme().equals("https")))
             throw new RuntimeException("URL must start with http or https");
 
@@ -132,7 +138,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
             client = baseSocketCreator.createSocketClient(uri.toString(), headers, 15000, new SignalRWebSocketCallbacks() {
                 @Override
                 public void onOpen() {
-                    Log.i(TAG, "Opened");
+                    log("Opened");
                     for (HubConnectionListener listener : listeners) {
                         listener.onConnected();
                     }
@@ -141,7 +147,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
 
                 @Override
                 public void onMessage(String message) {
-                    Log.i(TAG, message);
+                    log(message);
                     String[] messages = message.split(SPECIAL_SYMBOL);
                     for (String m : messages) {
                         SignalRMessage element = gson.fromJson(m, SignalRMessage.class);
@@ -164,12 +170,12 @@ public class WebSocketHubConnectionP2 implements HubConnection {
 
                 @Override
                 public void onClosing(int code, String reason) {
-                    Log.i(TAG, String.format("Closed. Code: %s, Reason: %s", code, reason));
+                    log(String.format("Closed. Code: %s, Reason: %s", code, reason));
                 }
 
                 @Override
                 public void onClose(int code, String reason) {
-                    Log.i(TAG, String.format("Closed. Code: %s, Reason: %s", code, reason));
+                    log(String.format("Closed. Code: %s, Reason: %s", code, reason));
                     for (HubConnectionListener listener : listeners) {
                         listener.onDisconnected();
                     }
@@ -178,14 +184,14 @@ public class WebSocketHubConnectionP2 implements HubConnection {
 
                 @Override
                 public void onError(Throwable ex) {
-                    Log.i(TAG, "Error " + ex.getMessage());
+                    log("Error " + ex.getMessage());
                     error(ex);
                 }
             });
         } catch (Exception e) {
             error(e);
         }
-        Log.i(TAG, "Connecting...");
+        log("Connecting...");
         client.connect();
         obtainingConnectionId = false;
     }
@@ -288,6 +294,12 @@ public class WebSocketHubConnectionP2 implements HubConnection {
             }
         };
         mCommandExecutor.execute(runnable);
+    }
+
+    private void log(String message) {
+        if (logEnabled) {
+            Log.i(TAG, message);
+        }
     }
 
     private static class InputStreamConverter {
