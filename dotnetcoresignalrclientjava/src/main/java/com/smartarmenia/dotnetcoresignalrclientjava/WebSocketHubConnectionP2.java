@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class WebSocketHubConnectionP2 implements HubConnection {
     private static String SPECIAL_SYMBOL = "\u001E";
@@ -31,17 +33,20 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     private Map<String, List<HubEventListener>> eventListeners = new HashMap<>();
     private Uri parsedUri;
     private Gson gson = new Gson();
+    private ExecutorService mConnectionExecutor;
+    private ExecutorService mCommandExecutor;
+    private volatile boolean obtainingConnectionId;
 
     private String connectionId = null;
-    private volatile boolean obtainingConnectionId;
     private String authHeader;
 
     private BaseSocketProvider baseSocketCreator;
 
     public <T extends BaseSocketProvider> WebSocketHubConnectionP2(String hubUrl, String authHeader, T baseSocketCreator) {
         this.authHeader = authHeader;
-        parsedUri = Uri.parse(hubUrl);
+        this.parsedUri = Uri.parse(hubUrl);
         this.baseSocketCreator = baseSocketCreator;
+        mCommandExecutor = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -65,7 +70,8 @@ public class WebSocketHubConnectionP2 implements HubConnection {
                 }
             };
         }
-        new Thread(runnable).start();
+        mConnectionExecutor = Executors.newSingleThreadExecutor(new ConnectionThreadFactory());
+        mConnectionExecutor.execute(runnable);
     }
 
     private void getConnectionId() {
@@ -194,11 +200,13 @@ public class WebSocketHubConnectionP2 implements HubConnection {
     public void disconnect() {
         Runnable runnable = new Runnable() {
             public void run() {
-                if (client != null && !(client.isClosed() || client.isClosing()))
+                if (client != null && !client.isClosing() && !client.isClosed()) {
                     client.close();
+                }
+                mConnectionExecutor.shutdown();
             }
         };
-        new Thread(runnable).start();
+        mCommandExecutor.execute(runnable);
     }
 
     @Override
@@ -279,7 +287,7 @@ public class WebSocketHubConnectionP2 implements HubConnection {
                 }
             }
         };
-        new Thread(runnable).start();
+        mCommandExecutor.execute(runnable);
     }
 
     private static class InputStreamConverter {
